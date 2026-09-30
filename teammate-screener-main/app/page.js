@@ -1,21 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import * as tf from '@tensorflow/tfjs';
+import '@tensorflow/tfjs'; // Required for blazeface to work
 import * as blazeface from '@tensorflow-models/blazeface';
-
-// Firebase Imports (Replace config with your real Firebase project keys)
-import { initializeApp } from "firebase/app";
-import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-
-const firebaseConfig = {
-  apiKey: "YOUR_FIREBASE_API_KEY",
-  authDomain: "YOUR_FIREBASE_AUTH_DOMAIN",
-  projectId: "YOUR_FIREBASE_PROJECT_ID",
-};
-// const app = initializeApp(firebaseConfig);
-// const auth = getAuth(app);
-// const provider = new GoogleAuthProvider();
 
 const questions = [
   { id: 1, question: "What is the output of type(10) in Python?", options: ["int", "float", "str", "bool"], answer: "int" },
@@ -57,24 +44,19 @@ export default function Page() {
   const videoRef = useRef(null);
   const proctorInterval = useRef(null);
   const missingCount = useRef(0);
-  const [isTerminated, setIsTerminated] = useState(false);
   const [proctorStatus, setProctorStatus] = useState('');
 
   useEffect(() => {
     const existing = JSON.parse(localStorage.getItem('local_results') || '[]');
     setSavedResults(existing);
-    return () => stopProctoring(); // Cleanup on unmount
+    return () => stopProctoring(); 
   }, []);
 
-  // ====== 1. GOOGLE AUTHENTICATION & DUPLICATE CHECK ======
   const handleGoogleLogin = async () => {
     try {
-      // NOTE: For live presentation, if Firebase isn't configured, we use a mock prompt. 
-      // Replace this block with actual `signInWithPopup(auth, provider)` once configured.
       const mockEmail = prompt("Google Auth Simulation: Enter your email to sign in");
       if (!mockEmail) return;
 
-      // Check if student already took the test
       const existing = JSON.parse(localStorage.getItem('local_results') || '[]');
       const hasTakenTest = existing.some(result => result.studentEmail === mockEmail);
 
@@ -84,14 +66,13 @@ export default function Page() {
       }
 
       setStudentEmail(mockEmail);
-      setStudentName(mockEmail.split('@')[0]); // Mock name extraction
+      setStudentName(mockEmail.split('@')[0]); 
       alert("Google Sign-In Successful!");
     } catch (error) {
       console.error("Login failed", error);
     }
   };
 
-  // ====== 2. AI FACE PROCTORING (TENSORFLOW) ======
   const startProctoring = async () => {
     try {
       setProctorStatus('Initializing AI Camera...');
@@ -103,19 +84,17 @@ export default function Page() {
       const model = await blazeface.load();
       setProctorStatus('AI Proctor Active (Monitoring Presence)');
 
-      // Check for face every 2 seconds
       proctorInterval.current = setInterval(async () => {
         if (videoRef.current && videoRef.current.readyState === 4) {
           const predictions = await model.estimateFaces(videoRef.current, false);
           
           if (predictions.length === 0) {
             missingCount.current += 1;
-            // If face is missing for 3 consecutive checks (6 seconds), terminate!
             if (missingCount.current >= 3) {
               terminateTest();
             }
           } else {
-            missingCount.current = 0; // Reset if face returns
+            missingCount.current = 0; 
           }
         }
       }, 2000);
@@ -134,11 +113,9 @@ export default function Page() {
 
   const terminateTest = () => {
     stopProctoring();
-    setIsTerminated(true);
     setStep('terminated');
   };
 
-  // ====== TEST FLOW LOGIC ======
   const startTest = () => {
     if (!studentEmail) {
       alert("Please log in with Google first.");
@@ -146,10 +123,9 @@ export default function Page() {
     }
     if (!department) return;
     
-    // Check if mobile (to skip screen share)
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile) {
-      alert("Mobile Device Detected: Screen sharing is disabled by iOS/Android OS. Proceeding with Webcam Proctoring only.");
+      alert("Mobile Device Detected: Proceeding with Webcam Proctoring.");
     }
 
     setStep('test');
@@ -197,7 +173,6 @@ export default function Page() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4">
       
-      {/* STEP 1: PROFILE & LOGIN */}
       {step === 'profile' && (
         <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
           <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center">Teammate Screener</h1>
@@ -207,8 +182,7 @@ export default function Page() {
               onClick={handleGoogleLogin}
               className="w-full py-3 mb-6 bg-white border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2 shadow-sm"
             >
-              <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
-              Sign in with Google
+              Sign in with Google (Simulated)
             </button>
           ) : (
             <div className="mb-6 p-3 bg-green-50 text-green-700 border border-green-200 rounded-lg text-sm text-center font-medium">
@@ -232,11 +206,8 @@ export default function Page() {
         </div>
       )}
 
-      {/* STEP 2: TEST SCREEN WITH WEBCAM PROCTORING */}
       {step === 'test' && (
         <div className="w-full max-w-4xl flex flex-col md:flex-row gap-6">
-          
-          {/* Main Test Area */}
           <div className="flex-1 rounded-2xl bg-white p-8 shadow-xl">
             <div className="flex justify-between items-center mb-6 border-b pb-3">
               <span className="text-sm font-semibold text-gray-500">Skill: {skill}</span>
@@ -263,17 +234,15 @@ export default function Page() {
             </button>
           </div>
 
-          {/* AI Proctoring Sidebar */}
           <div className="w-full md:w-72 bg-white rounded-2xl p-4 shadow-xl flex flex-col items-center">
             <h3 className="text-sm font-bold text-gray-800 mb-2">AI Proctor Feed</h3>
             <p className="text-xs text-red-500 font-semibold mb-4 text-center animate-pulse">{proctorStatus}</p>
-            <video ref={videoRef} autoPlay playsInline muted className="w-full h-auto rounded-lg bg-black mirror border border-gray-300" style={{ transform: "scaleX(-1)" }} />
+            <video ref={videoRef} autoPlay playsInline muted className="w-full h-auto rounded-lg bg-black border border-gray-300" style={{ transform: "scaleX(-1)" }} />
             <p className="text-xs text-gray-500 mt-4 text-center">Looking away or leaving the frame will instantly terminate your test.</p>
           </div>
         </div>
       )}
 
-      {/* STEP 3: TERMINATED STATE (ANTI-CHEAT) */}
       {step === 'terminated' && (
         <div className="w-full max-w-md rounded-2xl bg-red-50 border border-red-200 p-8 shadow-xl text-center">
           <h1 className="text-3xl font-extrabold text-red-600 mb-4">TEST TERMINATED</h1>
@@ -285,7 +254,6 @@ export default function Page() {
         </div>
       )}
 
-      {/* STEP 4: RESULTS */}
       {step === 'results' && (
         <div className="w-full max-w-xl rounded-2xl bg-white p-8 shadow-xl text-center">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Assessment Results</h1>
